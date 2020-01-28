@@ -69,9 +69,12 @@
 #include <octomap/OcTreeKey.h>
 
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
+#define STAMPED_OCTOMAP_SERVER 
 
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
+#elif defined(STAMPED_OCTOMAP_SERVER)
+#include <octomap/OcTreeStamped.h>
 #endif
 
 namespace octomap_server {
@@ -82,6 +85,10 @@ public:
   typedef pcl::PointXYZRGB PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZRGB> PCLPointCloud;
   typedef octomap::ColorOcTree OcTreeT;
+#elif defined(STAMPED_OCTOMAP_SERVER)
+  typedef pcl::PointXYZ PCLPoint;
+  typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
+  typedef octomap::OcTreeStamped OcTreeT;
 #else
   typedef pcl::PointXYZ PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
@@ -262,6 +269,7 @@ protected:
   bool m_filterSpeckles;
 
   bool m_simpleGroundFilter;
+  unsigned int m_time_thresh;
 
   bool m_filterGroundPlane;
   double m_groundFilterDistance;
