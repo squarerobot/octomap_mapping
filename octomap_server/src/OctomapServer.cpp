@@ -72,7 +72,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_fixedSizeX(0.0), m_fixedSizeY(0.0),
   m_filterSpeckles(false), m_filterGroundPlane(false), m_simpleGroundFilter(false),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
-  m_time_thresh( 120 ),
+  m_time_thresh( 0 ),
   m_compressMap(true),
   m_incrementalUpdate(false),
   m_initConfig(true)
@@ -211,7 +211,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_clearBBXService = private_nh.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
   m_resetService = private_nh.advertiseService("reset", &OctomapServer::resetSrv, this);
 #ifdef STAMPED_OCTOMAP_SERVER
-  m_setEpochService = private_nh.advertiseService("set_epoch", &OctomapServer::setEpochSrv, this);
+  m_setEpochSub = private_nh.subscribe<std_msgs::Time>("set_map_epoch", 1, &OctomapServer::onSetEpoch, this);
+  m_setDegradeThreshSub = private_nh.subscribe<std_msgs::Duration>("set_degrade_thresh", 1, &OctomapServer::onSetDegradeThresh, this);
 #endif
   
 
@@ -887,10 +888,14 @@ bool OctomapServer::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Res
 }
 
 #ifdef STAMPED_OCTOMAP_SERVER
-  bool OctomapServer::setEpochSrv(SetEpoch::Request& req, SetEpoch::Response& resp) {
-    m_octree->removeStaleNodes(req.epoch);
-    return true;
-  }
+void OctomapServer::onSetEpoch(const std_msgs::Time::ConstPtr& epoch) {
+  m_octree->removeStaleNodes(static_cast<uint32_t>(epoch->data.toSec()));
+}
+
+void OctomapServer::onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh) {
+  m_octree->degradeOutdatedNodes(static_cast<uint32_t>(thresh->data.toSec()),
+                                 static_cast<uint32_t>(ros::Time::now().toSec()));
+}
 #endif
 
 void OctomapServer::publishBinaryOctoMap(const ros::Time& rostime) const{
