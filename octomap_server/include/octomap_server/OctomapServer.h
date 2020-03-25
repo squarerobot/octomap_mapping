@@ -74,7 +74,9 @@
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
 #elif defined(STAMPED_OCTOMAP_SERVER)
-#include <octomap/OcTreeStamped.h>
+#include <octomap_server/SquareOcTreeStamped.h>
+#include <std_msgs/Time.h>
+#include <std_msgs/Duration.h>
 #endif
 
 namespace octomap_server {
@@ -88,7 +90,7 @@ public:
 #elif defined(STAMPED_OCTOMAP_SERVER)
   typedef pcl::PointXYZ PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
-  typedef octomap::OcTreeStamped OcTreeT;
+  typedef octomap::SquareOcTreeStamped OcTreeT;
 #else
   typedef pcl::PointXYZ PCLPoint;
   typedef pcl::PointCloud<pcl::PointXYZ> PCLPointCloud;
@@ -103,6 +105,10 @@ public:
   virtual bool octomapFullSrv(OctomapSrv::Request  &req, OctomapSrv::GetOctomap::Response &res);
   bool clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp);
   bool resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
+#ifdef STAMPED_OCTOMAP_SERVER
+  void onSetEpoch(const std_msgs::Time::ConstPtr& epoch);
+  void onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh);
+#endif
 
   void OnCrossSectionRequest(const std_msgs::Float32::ConstPtr& request);
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
@@ -223,6 +229,9 @@ protected:
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
+#ifdef STAMPED_OCTOMAP_SERVER
+  ros::Subscriber m_setEpochSub, m_setDegradeThreshSub;
+#endif
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
@@ -269,7 +278,7 @@ protected:
   bool m_filterSpeckles;
 
   bool m_simpleGroundFilter;
-  unsigned int m_time_thresh;
+  uint32_t m_time_thresh;
 
   bool m_filterGroundPlane;
   double m_groundFilterDistance;

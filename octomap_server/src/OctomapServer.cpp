@@ -72,7 +72,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_fixedSizeX(0.0), m_fixedSizeY(0.0),
   m_filterSpeckles(false), m_filterGroundPlane(false), m_simpleGroundFilter(false),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
-  m_time_thresh( 120 ),
+  m_time_thresh( 0 ),
   m_compressMap(true),
   m_incrementalUpdate(false),
   m_initConfig(true)
@@ -111,6 +111,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("ground_filter/plane_distance", m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
 
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
+
   //param doesn't seem to like unsigned int, so use a temporary int and check for negatives
   int temp_thresh = m_time_thresh;
   private_nh.param("time_thres", temp_thresh, temp_thresh);
@@ -209,6 +210,11 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
   m_clearBBXService = private_nh.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
   m_resetService = private_nh.advertiseService("reset", &OctomapServer::resetSrv, this);
+#ifdef STAMPED_OCTOMAP_SERVER
+  m_setEpochSub = private_nh.subscribe<std_msgs::Time>("set_map_epoch", 1, &OctomapServer::onSetEpoch, this);
+  m_setDegradeThreshSub = private_nh.subscribe<std_msgs::Duration>("set_degrade_thresh", 1, &OctomapServer::onSetDegradeThresh, this);
+#endif
+  
 
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f;
   f = boost::bind(&OctomapServer::reconfigureCallback, this, _1, _2);
@@ -301,6 +307,9 @@ void OctomapServer::OnCrossSectionRequest(const std_msgs::Float32::ConstPtr& req
 
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
   ros::WallTime startTime = ros::WallTime::now();
+#ifdef STAMPED_OCTOMAP_SERVER
+  m_octree->updateTime(static_cast<uint32_t>(ros::Time::now().toSec()));
+#endif
 
   //
   // ground filtering in base frame
@@ -408,7 +417,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
 #ifdef STAMPED_OCTOMAP_SERVER
   if( m_time_thresh > 0 ) {
-    m_octree->degradeOutdatedNodes( m_time_thresh );
+    m_octree->degradeOutdatedNodes( m_time_thresh, static_cast<uint32_t>(ros::Time::now().toSec()));
   }
 #endif
 
@@ -877,6 +886,17 @@ bool OctomapServer::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Res
 
   return true;
 }
+
+#ifdef STAMPED_OCTOMAP_SERVER
+void OctomapServer::onSetEpoch(const std_msgs::Time::ConstPtr& epoch) {
+  m_octree->removeStaleNodes(static_cast<uint32_t>(epoch->data.toSec()));
+}
+
+void OctomapServer::onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh) {
+  m_octree->degradeOutdatedNodes(static_cast<uint32_t>(thresh->data.toSec()),
+                                 static_cast<uint32_t>(ros::Time::now().toSec()));
+}
+#endif
 
 void OctomapServer::publishBinaryOctoMap(const ros::Time& rostime) const{
 
