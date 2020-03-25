@@ -14,7 +14,6 @@ set(PACKAGE_DEPENDENCIES
   octomap_msgs
   dynamic_reconfigure
   nodelet  
-  message_generation
 )
 
 
@@ -32,23 +31,12 @@ include_directories(
   ${OCTOMAP_INCLUDE_DIRS}
 )
 
-## Generate services
-add_service_files(
-  FILES
-  SetEpoch.srv
-)
-
-generate_messages(
-   DEPENDENCIES
-   std_msgs
-)
-
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
 catkin_package(
   INCLUDE_DIRS include ${OCTOMAP_INCLUDE_DIRS}
   LIBRARIES ${PROJECT_NAME} ${OCTOMAP_LIBRARIES}
-  CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES} message_runtime
+  CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES}
   DEPENDS PCL
 )
 
