@@ -76,7 +76,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_incrementalUpdate(false),
   m_initConfig(true)
 {
-  double probHit, probMiss, thresMin, thresMax;
+  double probHit, probMiss, thresMin, thresMax, occupancyThresh;
 
   ros::NodeHandle private_nh(private_nh_);
   private_nh.param("frame_id", m_worldFrameId, m_worldFrameId);
@@ -112,12 +112,16 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
 
   private_nh.param("resolution", m_res, m_res);
-  private_nh.param("sensor_model/hit", probHit, 0.7);
-  private_nh.param("sensor_model/miss", probMiss, 0.4);
+  private_nh.param("sensor_model/default_hit", probHit, 0.7);
+  private_nh.param("sensor_model/default_miss", probMiss, 0.4);
   private_nh.param("sensor_model/min", thresMin, 0.12);
   private_nh.param("sensor_model/max", thresMax, 0.97);
   private_nh.param("compress_map", m_compressMap, m_compressMap);
   private_nh.param("incremental_2D_projection", m_incrementalUpdate, m_incrementalUpdate);
+
+  private_nh.param("sensor_model/occupancy_thresh", occupancyThresh, 0.5);
+  private_nh.param("sensor_model/probs_hit", m_sensor_frame_hit_prob);
+  private_nh.param("sensor_model/probs_miss", m_sensor_frame_miss_prob);
 
   double publishRate = 0.1; 
   private_nh.param("publish_all_rate", publishRate, publishRate );
@@ -150,6 +154,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_octree->setProbMiss(probMiss);
   m_octree->setClampingThresMin(thresMin);
   m_octree->setClampingThresMax(thresMax);
+  m_octree->setOccupancyThres(occupancyThresh);
   m_treeDepth = m_octree->getTreeDepth();
   m_maxTreeDepth = m_treeDepth;
   m_gridmap.info.resolution = m_res;
@@ -397,7 +402,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pc_nonground.header = pc.header;
   }
 
-  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
+  insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground, cloud->header.frame_id);
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
@@ -408,7 +413,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   }
 }
 
-void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground){
+void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground, std::string sensor_frame){
   point3d sensorOrigin = pointTfToOctomap(sensorOriginTf);
 
   if (!m_octree->coordToKeyChecked(sensorOrigin, m_updateBBXMin)
@@ -490,16 +495,23 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
     }
   }
 
+  float prob_hit = m_octree->getProbHit();
+  float prob_miss = m_octree->getProbMiss();
+  if (m_sensor_frame_hit_prob.count(sensor_frame) && m_sensor_frame_miss_prob.count(sensor_frame)) {
+    prob_hit = m_sensor_frame_hit_prob[sensor_frame];
+    prob_miss = m_sensor_frame_miss_prob[sensor_frame];
+  }
+
   // mark free cells only if not seen occupied in this cloud
   for(KeySet::iterator it = free_cells.begin(), end=free_cells.end(); it!= end; ++it){
     if (occupied_cells.find(*it) == occupied_cells.end()){
-      m_octree->updateNode(*it, false);
+      m_octree->updateNode(*it, logodds(prob_miss), false);
     }
   }
 
   // now mark all occupied cells:
   for (KeySet::iterator it = occupied_cells.begin(), end=occupied_cells.end(); it!= end; it++) {
-    m_octree->updateNode(*it, true);
+    m_octree->updateNode(*it, logodds(prob_hit), false);
   }
 
   // TODO: eval lazy+updateInner vs. proper insertion

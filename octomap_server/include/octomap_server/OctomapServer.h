@@ -137,7 +137,7 @@ protected:
   * @param ground scan endpoints on the ground plane (only clear space)
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
-  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground, std::string sensor_frame="");
 
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
@@ -274,6 +274,7 @@ protected:
   double m_zCrossSectionLocation;
 
   bool m_initConfig;
+  std::map<std::string, double> m_sensor_frame_hit_prob, m_sensor_frame_miss_prob;
 
   // downprojected 2D map:
   bool m_incrementalUpdate;
