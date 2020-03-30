@@ -79,6 +79,10 @@
 #include <std_msgs/Duration.h>
 #endif
 
+#include <pluginlib/class_loader.hpp>
+#include <sensor_model_plugins/sensor_model_base.h>
+#include <unordered_map>
+
 namespace octomap_server {
 class OctomapServer {
 
@@ -150,7 +154,7 @@ protected:
   * @param ground scan endpoints on the ground plane (only clear space)
   * @param nonground all other endpoints (clear up to occupied endpoint)
   */
-  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
+  virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground, std::string frame_id="");
 
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
@@ -246,7 +250,6 @@ protected:
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
 
-  double m_maxRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
   bool m_useHeightMap;
@@ -302,6 +305,10 @@ protected:
   unsigned m_multires2DScale;
   bool m_projectCompleteMap;
   bool m_useColoredMap;
+
+  // sensor models
+  pluginlib::ClassLoader<square_robot::SensorModelBase> m_plugin_loader;
+  std::map<std::string, boost::shared_ptr<square_robot::SensorModelBase>> m_sensor_model_map;
 };
 }
 
