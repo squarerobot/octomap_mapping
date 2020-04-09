@@ -250,6 +250,7 @@ protected:
   octomap::OcTreeKey m_updateBBXMin;
   octomap::OcTreeKey m_updateBBXMax;
 
+  double m_maxRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
   bool m_useHeightMap;
@@ -307,6 +308,7 @@ protected:
   bool m_useColoredMap;
 
   // sensor models
+  bool m_use_sensor_plugins;
   pluginlib::ClassLoader<square_robot::SensorModelBase> m_plugin_loader;
   std::map<std::string, boost::shared_ptr<square_robot::SensorModelBase>> m_sensor_model_map;
 };
