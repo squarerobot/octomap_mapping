@@ -72,7 +72,7 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_fixedSizeX(0.0), m_fixedSizeY(0.0),
   m_filterSpeckles(false), m_filterGroundPlane(false), m_simpleGroundFilter(false),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
-  m_time_thresh( 0 ),
+  m_timeThresh( 0 ),
   m_compressMap(true),
   m_incrementalUpdate(false),
   m_initConfig(true)
@@ -113,11 +113,11 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   private_nh.param("sensor_model/max_range", m_maxRange, m_maxRange);
 
   //param doesn't seem to like unsigned int, so use a temporary int and check for negatives
-  int temp_thresh = m_time_thresh;
+  int temp_thresh = m_timeThresh;
   private_nh.param("time_thres", temp_thresh, temp_thresh);
-  m_time_thresh = temp_thresh;
+  m_timeThresh = temp_thresh;
   if( temp_thresh < 0 ) {
-    m_time_thresh = 0;
+    m_timeThresh = 0;
   }
 
   private_nh.param("resolution", m_res, m_res);
@@ -416,8 +416,8 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
   insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
 #ifdef STAMPED_OCTOMAP_SERVER
-  if( m_time_thresh > 0 ) {
-    m_octree->degradeOutdatedNodes( m_time_thresh, static_cast<uint32_t>(ros::Time::now().toSec()));
+  if( m_timeThresh > 0 ) {
+    m_octree->degradeOutdatedNodes( m_timeThresh, static_cast<uint32_t>(ros::Time::now().toSec()));
   }
 #endif
 
@@ -893,8 +893,7 @@ void OctomapServer::onSetEpoch(const std_msgs::Time::ConstPtr& epoch) {
 }
 
 void OctomapServer::onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh) {
-  m_octree->degradeOutdatedNodes(static_cast<uint32_t>(thresh->data.toSec()),
-                                 static_cast<uint32_t>(ros::Time::now().toSec()));
+  m_timeThresh = thresh->data.toSec() > 0 ? thresh->data.toSec() : 0;
 }
 #endif
 
