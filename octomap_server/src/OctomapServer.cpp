@@ -386,28 +386,26 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
   } else if(m_simpleGroundFilter) {
-    // iterate through all the points in world frame
-    // if a point's Z value lies in the floor plane envelope, it goes in pc_ground
-
-    // directly transform to map frame:
-    pcl::transformPointCloud(pc, pc, sensorToWorld);
-
-    // just filter height range:
+    // limit to octomap_tank_relay params
     pass_x.setInputCloud(pc.makeShared());
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
 
-    for (PCLPointCloud::const_iterator it = pc.begin(); it != pc.end(); ++it){
-      if(it->z < m_groundFilterDistance && it->z > -m_groundFilterDistance) {
-        pc_ground.push_back(*it);
-      } else {
-        pc_nonground.push_back(*it);
-      }
-    }
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // filter for just nonground in world frame
+    pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_nonground);
+
+    // filter for just ground in world frame
+    pass_z.setFilterLimits(m_pointcloudMinZ, m_groundFilterDistance);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_ground);
   
+    // copy header information
     pc_ground.header = pc.header;
     pc_nonground.header = pc.header;
   } else {
