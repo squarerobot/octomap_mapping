@@ -1382,7 +1382,10 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_fixedSizeY = config.map_fixed_y_size;
     m_fixedOriginX = config.map_fixed_x_origin;
     m_fixedOriginY = config.map_fixed_x_origin;
-    return; //Don't mess with the rest since level matched the fixed map bitmask
+
+    // DNR 6-16-23: This is a rather ominous comment which I don't completely understand, but dynamic
+    //              reconfigure doesn't work for other parameters on startup if this is returning here
+    //return; //Don't mess with the rest since level matched the fixed map bitmask
   }
   if (m_maxTreeDepth != unsigned(config.max_depth))
     m_maxTreeDepth = unsigned(config.max_depth);
