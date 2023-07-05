@@ -133,11 +133,6 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("compress_map", m_compressMap, m_compressMap);
   m_nh_private.param("incremental_2D_projection", m_incrementalUpdate, m_incrementalUpdate);
 
-  double publishRate = 0.1; 
-  m_nh_private.param("publish_all_rate", publishRate, publishRate );
-  m_publishAllRate = ros::WallDuration( publishRate );
-  m_lastPublishTime = ros::WallTime::now();
-
   if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
@@ -391,28 +386,26 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
   } else if(m_simpleGroundFilter) {
-    // iterate through all the points in world frame
-    // if a point's Z value lies in the floor plane envelope, it goes in pc_ground
-
-    // directly transform to map frame:
-    pcl::transformPointCloud(pc, pc, sensorToWorld);
-
-    // just filter height range:
+    // limit to octomap_tank_relay params
     pass_x.setInputCloud(pc.makeShared());
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
 
-    for (PCLPointCloud::const_iterator it = pc.begin(); it != pc.end(); ++it){
-      if(it->z < m_groundFilterDistance && it->z > -m_groundFilterDistance) {
-        pc_ground.push_back(*it);
-      } else {
-        pc_nonground.push_back(*it);
-      }
-    }
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // filter for just nonground in world frame
+    pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_nonground);
+
+    // filter for just ground in world frame
+    pass_z.setFilterLimits(m_pointcloudMinZ, m_groundFilterDistance);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_ground);
   
+    // copy header information
     pc_ground.header = pc.header;
     pc_nonground.header = pc.header;
   } else {
@@ -444,10 +437,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(), pc_nonground.size(), total_elapsed);
 
-  if( ( ros::WallTime::now() - m_lastPublishTime ) > m_publishAllRate ) {
-    publishAll(cloud->header.stamp);
-    m_lastPublishTime = ros::WallTime::now();
-  }
+  publishAll(cloud->header.stamp);
 }
 
 void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCloud& ground, const PCLPointCloud& nonground, std::string frame_id){
@@ -1392,7 +1382,10 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_fixedSizeY = config.map_fixed_y_size;
     m_fixedOriginX = config.map_fixed_x_origin;
     m_fixedOriginY = config.map_fixed_x_origin;
-    return; //Don't mess with the rest since level matched the fixed map bitmask
+
+    // DNR 6-16-23: This is a rather ominous comment which I don't completely understand, but dynamic
+    //              reconfigure doesn't work for other parameters on startup if this is returning here
+    //return; //Don't mess with the rest since level matched the fixed map bitmask
   }
   if (m_maxTreeDepth != unsigned(config.max_depth))
     m_maxTreeDepth = unsigned(config.max_depth);
