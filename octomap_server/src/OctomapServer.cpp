@@ -605,7 +605,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 
 
 void OctomapServer::publishProjected2DMap(const ros::Time& rostime) {
-  m_publish2DMap = (m_latchedTopics || m_mapPub.getNumSubscribers() > 0);
+  m_publish2DMap = (m_mapPub.getNumSubscribers() > 0);
   if (m_publish2DMap) {
     m_gridmap.header.stamp = rostime;
     m_mapPub.publish(m_gridmap);
@@ -621,14 +621,14 @@ void OctomapServer::publishAll(const ros::Time& rostime){
     return;
   }
 
-  bool publishFreeMarkerArray = m_publishFreeSpace && (m_latchedTopics || m_fmarkerPub.getNumSubscribers() > 0);
-  bool publishMarkerArray = (m_latchedTopics || m_markerPub.getNumSubscribers() > 0);
-  bool publishPointCloud = (m_latchedTopics || m_pointCloudPub.getNumSubscribers() > 0);
-  bool publishBinaryMap = (m_latchedTopics || m_binaryMapPub.getNumSubscribers() > 0);
-  bool publishFullMap = (m_latchedTopics || m_fullMapPub.getNumSubscribers() > 0);
+  bool publishFreeMarkerArray = m_publishFreeSpace && (m_fmarkerPub.getNumSubscribers() > 0);
+  bool publishMarkerArray = (m_markerPub.getNumSubscribers() > 0);
+  bool publishPointCloud = (m_pointCloudPub.getNumSubscribers() > 0);
+  bool publishBinaryMap = (m_binaryMapPub.getNumSubscribers() > 0);
+  bool publishFullMap = (m_fullMapPub.getNumSubscribers() > 0);
 
   if( !m_publish2DMap ) {
-    m_publish2DMap = (m_latchedTopics || m_mapPub.getNumSubscribers() > 0);
+    m_publish2DMap = (m_mapPub.getNumSubscribers() > 0);
   }
   
   // init markers for free space:
