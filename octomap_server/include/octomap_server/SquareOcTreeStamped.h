@@ -109,8 +109,8 @@ public:
 
   // Probabilistically degrades all occupied nodes last updated more than time_thresh seconds ago
   void degradeOutdatedNodes(uint32_t time_thresh, uint32_t current_time);
-  // Removes all nodes last updated before the given epoch
-  void removeStaleNodes(uint32_t epoch);
+  // Removes all nodes last updated before or after the given epoch
+  void removeNodesByTime(uint32_t epoch, bool before);
   // Updates the log odds of a node by update
   void updateNodeLogOdds(SquareOcTreeNodeStamped* node, const float& update) const override;
 
