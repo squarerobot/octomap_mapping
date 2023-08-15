@@ -116,7 +116,8 @@ public:
   bool clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp);
   bool resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
 #ifdef STAMPED_OCTOMAP_SERVER
-  void onSetEpoch(const std_msgs::Time::ConstPtr& epoch);
+  void onClrAfter(const std_msgs::Time::ConstPtr& epoch);
+  void onClrBefore(const std_msgs::Time::ConstPtr& epoch);
   void onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh);
 #endif
 
@@ -242,7 +243,7 @@ protected:
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
 #ifdef STAMPED_OCTOMAP_SERVER
-  ros::Subscriber m_setEpochSub, m_setDegradeThreshSub;
+  ros::Subscriber m_clrAfterSub, m_clrBeforeSub, m_setDegradeThreshSub;
 #endif
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;

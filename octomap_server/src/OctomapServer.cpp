@@ -227,7 +227,8 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_clearBBXService = m_nh_private.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
   m_resetService = m_nh_private.advertiseService("reset", &OctomapServer::resetSrv, this);
 #ifdef STAMPED_OCTOMAP_SERVER
-  m_setEpochSub = m_nh_private.subscribe<std_msgs::Time>("set_map_epoch", 1, &OctomapServer::onSetEpoch, this);
+  m_clrAfterSub = m_nh_private.subscribe<std_msgs::Time>("clear_map_after", 1, &OctomapServer::onClrAfter, this);
+  m_clrBeforeSub = m_nh_private.subscribe<std_msgs::Time>("clear_map_before", 1, &OctomapServer::onClrBefore, this);
   m_setDegradeThreshSub = m_nh_private.subscribe<std_msgs::Duration>("set_degrade_thresh", 1, &OctomapServer::onSetDegradeThresh, this);
 #endif
 
@@ -939,8 +940,12 @@ bool OctomapServer::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Res
 }
 
 #ifdef STAMPED_OCTOMAP_SERVER
-void OctomapServer::onSetEpoch(const std_msgs::Time::ConstPtr& epoch) {
-  m_octree->removeStaleNodes(static_cast<uint32_t>(epoch->data.toSec()));
+void OctomapServer::onClrAfter(const std_msgs::Time::ConstPtr& epoch) {
+  m_octree->removeNodesByTime(static_cast<uint32_t>(epoch->data.toSec()), false);
+}
+
+void OctomapServer::onClrBefore(const std_msgs::Time::ConstPtr& epoch) {
+  m_octree->removeNodesByTime(static_cast<uint32_t>(epoch->data.toSec()), true);
 }
 
 void OctomapServer::onSetDegradeThresh(const std_msgs::Duration::ConstPtr& thresh) {

@@ -60,11 +60,13 @@ void SquareOcTreeStamped::degradeOutdatedNodes(uint32_t time_thres, uint32_t cur
   }
 }
 
-void SquareOcTreeStamped::removeStaleNodes(uint32_t epoch) {
+void SquareOcTreeStamped::removeNodesByTime(uint32_t epoch, bool before=true) {
   std::deque<OcTreeKey> keys_to_remove;
   bool remove_all = true;
   for (leaf_iterator it = this->begin_leafs(); it != this->end_leafs(); ++it) {
-    if (it->getTimestamp() < epoch) {
+    if (it->getTimestamp() < epoch && before == true) {
+      keys_to_remove.push_back(it.getKey());
+    } else if (it->getTimestamp() > epoch && before == false) {
       keys_to_remove.push_back(it.getKey());
     } else {
       remove_all = false;
