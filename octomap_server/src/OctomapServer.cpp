@@ -1386,7 +1386,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_fixedSizeX = config.map_fixed_x_size;
     m_fixedSizeY = config.map_fixed_y_size;
     m_fixedOriginX = config.map_fixed_x_origin;
-    m_fixedOriginY = config.map_fixed_x_origin;
+    m_fixedOriginY = config.map_fixed_y_origin;
 
     // DNR 6-16-23: This is a rather ominous comment which I don't completely understand, but dynamic
     //              reconfigure doesn't work for other parameters on startup if this is returning here
