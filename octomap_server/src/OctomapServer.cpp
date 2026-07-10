@@ -387,14 +387,14 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
   } else if(m_simpleGroundFilter) {
-    // limit to octomap_tank_relay params
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // limit to octomap_tank_relay params (world frame)
     pass_x.setInputCloud(pc.makeShared());
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
-
-    // directly transform to map frame:
-    pcl::transformPointCloud(pc, pc, sensorToWorld);
 
     // filter for just nonground in world frame
     pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
