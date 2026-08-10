@@ -167,6 +167,11 @@ protected:
   /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
   void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
 
+  /// drop points whose world-frame XY radius from the origin (tank center) exceeds
+  /// m_pointcloudMaxRadius. Disabled when the radius is <= 0. The cloud must already
+  /// be in the world frame.
+  void filterByRadius(PCLPointCloud& pc) const;
+
   /**
   * @brief Find speckle nodes (single occupied voxels with no neighbors). Only works on lowest resolution!
   * @param key
@@ -276,6 +281,7 @@ protected:
   double m_pointcloudMaxX;
   double m_pointcloudMinY;
   double m_pointcloudMaxY;
+  double m_pointcloudMaxRadius;
   double m_pointcloudMinZ;
   double m_pointcloudMaxZ;
   double m_occupancyMinZ;

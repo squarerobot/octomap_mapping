@@ -65,6 +65,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_pointcloudMaxX(std::numeric_limits<double>::max()),
   m_pointcloudMinY(-std::numeric_limits<double>::max()),
   m_pointcloudMaxY(std::numeric_limits<double>::max()),
+  m_pointcloudMaxRadius(0.0),
   m_pointcloudMinZ(-std::numeric_limits<double>::max()),
   m_pointcloudMaxZ(std::numeric_limits<double>::max()),
   m_occupancyMinZ(-std::numeric_limits<double>::max()),
@@ -95,6 +96,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("pointcloud_max_x", m_pointcloudMaxX,m_pointcloudMaxX);
   m_nh_private.param("pointcloud_min_y", m_pointcloudMinY,m_pointcloudMinY);
   m_nh_private.param("pointcloud_max_y", m_pointcloudMaxY,m_pointcloudMaxY);
+  m_nh_private.param("pointcloud_max_radius", m_pointcloudMaxRadius,m_pointcloudMaxRadius);
   m_nh_private.param("pointcloud_min_z", m_pointcloudMinZ,m_pointcloudMinZ);
   m_nh_private.param("pointcloud_max_z", m_pointcloudMaxZ,m_pointcloudMaxZ);
   m_nh_private.param("occupancy_min_z", m_occupancyMinZ,m_occupancyMinZ);
@@ -395,6 +397,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
+    filterByRadius(pc);
 
     // filter for just nonground in world frame
     pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
@@ -419,6 +422,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
+    filterByRadius(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
 
@@ -1088,6 +1092,22 @@ void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& gr
 
 }
 
+void OctomapServer::filterByRadius(PCLPointCloud& pc) const{
+  if (m_pointcloudMaxRadius <= 0.0)
+    return;
+
+  const double maxRadiusSq = m_pointcloudMaxRadius * m_pointcloudMaxRadius;
+  PCLPointCloud pc_inside;
+  pc_inside.header = pc.header;
+  pc_inside.reserve(pc.size());
+  for (PCLPointCloud::const_iterator it = pc.begin(); it != pc.end(); ++it){
+    const double radiusSq = static_cast<double>(it->x) * it->x + static_cast<double>(it->y) * it->y;
+    if (radiusSq <= maxRadiusSq)
+      pc_inside.push_back(*it);
+  }
+  pc.swap(pc_inside);
+}
+
 void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
   if (m_publish2DMap){
     // init projected 2D map:
@@ -1399,6 +1419,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_pointcloudMaxX            = config.pointcloud_max_x;
     m_pointcloudMinY            = config.pointcloud_min_y;
     m_pointcloudMaxY            = config.pointcloud_max_y;
+    m_pointcloudMaxRadius       = config.pointcloud_max_radius;
     m_pointcloudMinZ            = config.pointcloud_min_z;
     m_pointcloudMaxZ            = config.pointcloud_max_z;
     m_occupancyMinZ             = config.occupancy_min_z;
