@@ -9,12 +9,14 @@ on: [push, pull_request] # on all pushes and PRs
 jobs:
   CI:
     strategy:
+      # keep the other distros building when one leg fails
+      fail-fast: false
       matrix:
         env:
+          # PRERELEASE legs removed: industrial_ci refuses prerelease tests
+          # for EOL distros (melodic and noetic both are), failing instantly
           - {ROS_DISTRO: melodic}
-          - {ROS_DISTRO: melodic, PRERELEASE: true}
           - {ROS_DISTRO: noetic}
-          - {ROS_DISTRO: noetic, PRERELEASE: true}
           - {ROS_DISTRO: noetic, OS_NAME: debian, OS_CODE_NAME: buster}
     env:
       CCACHE_DIR: /github/home/.ccache # Enable ccache
