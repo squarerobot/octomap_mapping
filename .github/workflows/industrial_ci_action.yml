@@ -13,8 +13,6 @@ jobs:
       fail-fast: false
       matrix:
         env:
-          # PRERELEASE legs removed: industrial_ci refuses prerelease tests
-          # for EOL distros (melodic and noetic both are), failing instantly
           - {ROS_DISTRO: melodic}
           - {ROS_DISTRO: noetic}
           - {ROS_DISTRO: noetic, OS_NAME: debian, OS_CODE_NAME: buster}
