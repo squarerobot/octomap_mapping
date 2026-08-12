@@ -66,6 +66,8 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_pointcloudMinY(-std::numeric_limits<double>::max()),
   m_pointcloudMaxY(std::numeric_limits<double>::max()),
   m_pointcloudMaxRadius(0.0),
+  m_pointcloudMaxSensorRange(0.0),
+  m_useSensorRangeBounds(false),
   m_pointcloudMinZ(-std::numeric_limits<double>::max()),
   m_pointcloudMaxZ(std::numeric_limits<double>::max()),
   m_occupancyMinZ(-std::numeric_limits<double>::max()),
@@ -97,6 +99,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("pointcloud_min_y", m_pointcloudMinY,m_pointcloudMinY);
   m_nh_private.param("pointcloud_max_y", m_pointcloudMaxY,m_pointcloudMaxY);
   m_nh_private.param("pointcloud_max_radius", m_pointcloudMaxRadius,m_pointcloudMaxRadius);
+  m_nh_private.param("pointcloud_max_sensor_range", m_pointcloudMaxSensorRange,m_pointcloudMaxSensorRange);
   m_nh_private.param("pointcloud_min_z", m_pointcloudMinZ,m_pointcloudMinZ);
   m_nh_private.param("pointcloud_max_z", m_pointcloudMaxZ,m_pointcloudMaxZ);
   m_nh_private.param("occupancy_min_z", m_occupancyMinZ,m_occupancyMinZ);
@@ -222,6 +225,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, boost::placeholders::_1));
 
   m_crossSectional2DMapRequestSub = m_nh.subscribe<std_msgs::Float32>("cross_section_request", 1, &OctomapServer::OnCrossSectionRequest, this);
+  m_useSensorRangeBoundsSub = m_nh.subscribe<std_msgs::Bool>("use_sensor_range_bounds", 1, &OctomapServer::onUseSensorRangeBounds, this);
 
   m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &OctomapServer::octomapBinarySrv, this);
   m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
@@ -392,12 +396,18 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     // directly transform to map frame:
     pcl::transformPointCloud(pc, pc, sensorToWorld);
 
-    // limit to octomap_tank_relay params (world frame)
-    pass_x.setInputCloud(pc.makeShared());
-    pass_x.filter(pc);
-    pass_y.setInputCloud(pc.makeShared());
-    pass_y.filter(pc);
-    filterByRadius(pc);
+    if (m_useSensorRangeBounds && m_pointcloudMaxSensorRange > 0.0){
+      // the world alignment is being corrected, so the origin-anchored
+      // bounds cannot be trusted: bound by distance from the sensor instead
+      filterBySensorRange(pc, sensorToWorldTf.getOrigin());
+    } else {
+      // limit to octomap_tank_relay params (world frame)
+      pass_x.setInputCloud(pc.makeShared());
+      pass_x.filter(pc);
+      pass_y.setInputCloud(pc.makeShared());
+      pass_y.filter(pc);
+      filterByRadius(pc);
+    }
 
     // filter for just nonground in world frame
     pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
@@ -417,12 +427,17 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     // directly transform to map frame:
     pcl::transformPointCloud(pc, pc, sensorToWorld);
 
+    if (m_useSensorRangeBounds && m_pointcloudMaxSensorRange > 0.0){
+      filterBySensorRange(pc, sensorToWorldTf.getOrigin());
+    } else {
+      pass_x.setInputCloud(pc.makeShared());
+      pass_x.filter(pc);
+      pass_y.setInputCloud(pc.makeShared());
+      pass_y.filter(pc);
+      filterByRadius(pc);
+    }
+
     // just filter height range:
-    pass_x.setInputCloud(pc.makeShared());
-    pass_x.filter(pc);
-    pass_y.setInputCloud(pc.makeShared());
-    pass_y.filter(pc);
-    filterByRadius(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
 
@@ -1108,6 +1123,31 @@ void OctomapServer::filterByRadius(PCLPointCloud& pc) const{
   pc.swap(pc_inside);
 }
 
+void OctomapServer::filterBySensorRange(PCLPointCloud& pc, const tf::Point& sensorOrigin) const{
+  if (m_pointcloudMaxSensorRange <= 0.0)
+    return;
+
+  const double maxRangeSq = m_pointcloudMaxSensorRange * m_pointcloudMaxSensorRange;
+  PCLPointCloud pc_inside;
+  pc_inside.header = pc.header;
+  pc_inside.reserve(pc.size());
+  for (PCLPointCloud::const_iterator it = pc.begin(); it != pc.end(); ++it){
+    const double dx = it->x - sensorOrigin.x();
+    const double dy = it->y - sensorOrigin.y();
+    const double dz = it->z - sensorOrigin.z();
+    if (dx * dx + dy * dy + dz * dz <= maxRangeSq)
+      pc_inside.push_back(*it);
+  }
+  pc.swap(pc_inside);
+}
+
+void OctomapServer::onUseSensorRangeBounds(const std_msgs::Bool::ConstPtr& msg){
+  if (msg->data != m_useSensorRangeBounds){
+    ROS_INFO_STREAM("Pointcloud bounds switched to " << (msg->data ? "sensor-range" : "origin-anchored"));
+  }
+  m_useSensorRangeBounds = msg->data;
+}
+
 void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
   if (m_publish2DMap){
     // init projected 2D map:
@@ -1420,6 +1460,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_pointcloudMinY            = config.pointcloud_min_y;
     m_pointcloudMaxY            = config.pointcloud_max_y;
     m_pointcloudMaxRadius       = config.pointcloud_max_radius;
+    m_pointcloudMaxSensorRange  = config.pointcloud_max_sensor_range;
     m_pointcloudMinZ            = config.pointcloud_min_z;
     m_pointcloudMaxZ            = config.pointcloud_max_z;
     m_occupancyMinZ             = config.occupancy_min_z;

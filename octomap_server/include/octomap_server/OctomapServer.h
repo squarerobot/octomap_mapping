@@ -172,6 +172,16 @@ protected:
   /// be in the world frame.
   void filterByRadius(PCLPointCloud& pc) const;
 
+  /// drop points farther than m_pointcloudMaxSensorRange from the sensor origin.
+  /// Used instead of the origin-anchored bounds while sensor-range bounds are
+  /// selected (see onUseSensorRangeBounds). The cloud must already be in the
+  /// world frame; distance from the sensor is frame-invariant.
+  void filterBySensorRange(PCLPointCloud& pc, const tf::Point& sensorOrigin) const;
+
+  /// selects between the origin-anchored bounds (box + radius, default) and the
+  /// sensor-range bound, e.g. while the world alignment is being corrected
+  void onUseSensorRangeBounds(const std_msgs::Bool::ConstPtr& msg);
+
   /**
   * @brief Find speckle nodes (single occupied voxels with no neighbors). Only works on lowest resolution!
   * @param key
@@ -255,6 +265,7 @@ protected:
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
   ros::Subscriber m_crossSectional2DMapRequestSub;
+  ros::Subscriber m_useSensorRangeBoundsSub;
 
   OcTreeT* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
@@ -282,6 +293,8 @@ protected:
   double m_pointcloudMinY;
   double m_pointcloudMaxY;
   double m_pointcloudMaxRadius;
+  double m_pointcloudMaxSensorRange;
+  bool m_useSensorRangeBounds;
   double m_pointcloudMinZ;
   double m_pointcloudMaxZ;
   double m_occupancyMinZ;
