@@ -10,7 +10,7 @@
 //      notice, this list of conditions and the following disclaimer in the
 //      documentation and/or other materials provided with the distribution.
 //
-//    * Neither the name of Square Robot, Inc. nor the names of its
+//    * Neither the name of the Square Robot, Inc. nor the names of its
 //      contributors may be used to endorse or promote products derived from
 //      this software without specific prior written permission.
 //
@@ -30,26 +30,31 @@
 
 #include <deque>
 
-namespace octomap {
+namespace octomap
+{
 uint32_t SquareOcTreeNodeStamped::time = 0;
 
 SquareOcTreeStamped::SquareOcTreeStamped(double in_resolution)
-  : OccupancyOcTreeBase<SquareOcTreeNodeStamped>(in_resolution) {
+: OccupancyOcTreeBase<SquareOcTreeNodeStamped>(in_resolution)
+{
   SquareOcTreeStampedMemberInit.ensureLinking();
 }
 
-uint32_t SquareOcTreeStamped::getLastUpdateTime() {
+uint32_t SquareOcTreeStamped::getLastUpdateTime()
+{
   return time_last_updated;
 }
 
-void SquareOcTreeStamped::updateTime(uint32_t t) {
+void SquareOcTreeStamped::updateTime(uint32_t t)
+{
   time_last_updated = t;
   if (this->root) {
     root->setTime(t);
   }
 }
 
-void SquareOcTreeStamped::degradeOutdatedNodes(uint32_t time_thres, uint32_t current_time) {
+void SquareOcTreeStamped::degradeOutdatedNodes(uint32_t time_thres, uint32_t current_time)
+{
   for (leaf_iterator it = this->begin_leafs(), end = this->end_leafs(); it != end; ++it) {
     if (this->isNodeOccupied(*it) && ((current_time - it->getTimestamp()) > time_thres)) {
       OccupancyOcTreeBase<SquareOcTreeNodeStamped>::updateNodeLogOdds(&*it, prob_miss_log);
@@ -57,7 +62,8 @@ void SquareOcTreeStamped::degradeOutdatedNodes(uint32_t time_thres, uint32_t cur
   }
 }
 
-void SquareOcTreeStamped::removeNodesByTime(uint32_t epoch, bool before) {
+void SquareOcTreeStamped::removeNodesByTime(uint32_t epoch, bool before)
+{
   std::deque<OcTreeKey> keys_to_remove;
   bool remove_all = true;
   for (leaf_iterator it = this->begin_leafs(); it != this->end_leafs(); ++it) {
@@ -80,7 +86,8 @@ void SquareOcTreeStamped::removeNodesByTime(uint32_t epoch, bool before) {
 }
 
 void SquareOcTreeStamped::updateNodeLogOdds(
-  SquareOcTreeNodeStamped* node, const float& update) const {
+  SquareOcTreeNodeStamped * node, const float & update) const
+{
   OccupancyOcTreeBase<SquareOcTreeNodeStamped>::updateNodeLogOdds(node, update);
   node->updateTimestamp();
 }

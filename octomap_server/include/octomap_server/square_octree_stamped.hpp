@@ -10,7 +10,7 @@
 //      notice, this list of conditions and the following disclaimer in the
 //      documentation and/or other materials provided with the distribution.
 //
-//    * Neither the name of Square Robot, Inc. nor the names of its
+//    * Neither the name of the Square Robot, Inc. nor the names of its
 //      contributors may be used to endorse or promote products derived from
 //      this software without specific prior written permission.
 //
@@ -34,45 +34,56 @@
 #include <memory>
 #include <string>
 
-namespace octomap {
+namespace octomap
+{
 
 // node definition
 class SquareOcTreeNodeStamped : public OcTreeNode {
 public:
-  SquareOcTreeNodeStamped() : OcTreeNode(), timestamp(0) {
+  SquareOcTreeNodeStamped()
+  : OcTreeNode(), timestamp(0)
+  {
   }
 
-  SquareOcTreeNodeStamped(const SquareOcTreeNodeStamped& rhs)
-  : OcTreeNode(rhs), timestamp(rhs.timestamp) {
+  SquareOcTreeNodeStamped(const SquareOcTreeNodeStamped & rhs)
+  : OcTreeNode(rhs), timestamp(rhs.timestamp)
+  {
   }
 
-  bool operator==(const SquareOcTreeNodeStamped& rhs) const {
-    return (rhs.value == value && rhs.timestamp == timestamp);
+  bool operator==(const SquareOcTreeNodeStamped & rhs) const
+  {
+    return  rhs.value == value && rhs.timestamp == timestamp;
   }
 
-  void copyData(const SquareOcTreeNodeStamped& from) {
+  void copyData(const SquareOcTreeNodeStamped & from)
+  {
     OcTreeNode::copyData(from);
     timestamp = from.getTimestamp();
   }
 
   // timestamp
-  inline uint32_t getTimestamp() const {
+  inline uint32_t getTimestamp() const
+  {
     return timestamp;
   }
 
-  inline void updateTimestamp() {
+  inline void updateTimestamp()
+  {
     timestamp = time;
   }
 
-  inline void setTimestamp(uint32_t t) {
+  inline void setTimestamp(uint32_t t)
+  {
     timestamp = t;
   }
 
-  inline void setTime(uint32_t t) {
+  inline void setTime(uint32_t t)
+  {
     time = t;
   }
 
-  inline void updateOccupancyChildren() {
+  inline void updateOccupancyChildren()
+  {
     this->setLogOdds(this->getMaxChildLogOdds());  // conservative
     updateTimestamp();
   }
@@ -92,11 +103,13 @@ public:
   explicit SquareOcTreeStamped(double resolution);
 
   // Virtual Constructor
-  SquareOcTreeStamped* create() const {
+  SquareOcTreeStamped * create() const
+  {
     return new SquareOcTreeStamped(resolution);
   }
 
-  std::string getTreeType() const {
+  std::string getTreeType() const
+  {
     return "SquareOcTreeStamped";
   }
 
@@ -108,7 +121,7 @@ public:
   // Removes all nodes last updated before or after the given epoch
   void removeNodesByTime(uint32_t epoch, bool before);
   // Updates the log odds of a node by update
-  void updateNodeLogOdds(SquareOcTreeNodeStamped* node, const float& update) const override;
+  void updateNodeLogOdds(SquareOcTreeNodeStamped * node, const float & update) const override;
 
 protected:
   /**
@@ -119,13 +132,15 @@ protected:
    * ensureLinking() once from the constructor.
    */
   class StaticMemberInitializer {
-  public:
-    StaticMemberInitializer() {
-      SquareOcTreeStamped* tree = new SquareOcTreeStamped(0.1);
+public:
+    StaticMemberInitializer()
+    {
+      SquareOcTreeStamped * tree = new SquareOcTreeStamped(0.1);
       tree->clearKeyRays();
       AbstractOcTree::registerTreeType(tree);
     }
-    void ensureLinking() {
+    void ensureLinking()
+    {
     }
   };
   /// to ensure static initialization (only once)
