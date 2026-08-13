@@ -29,9 +29,6 @@
 #ifndef OCTOMAP_SERVER__OCTOMAP_SERVER_HPP_
 #define OCTOMAP_SERVER__OCTOMAP_SERVER_HPP_
 
-// octomap 1.9 headers use fixed-width integer types without including this
-#include <cstdint>
-
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
