@@ -35,6 +35,9 @@
 #ifndef OCTOMAP_SERVER__SQUARE_OCTREE_STAMPED_HPP_
 #define OCTOMAP_SERVER__SQUARE_OCTREE_STAMPED_HPP_
 
+// octomap 1.9 headers use fixed-width integer types without including this
+#include <cstdint>
+
 #include <octomap/OcTreeNode.h>
 #include <octomap/OccupancyOcTreeBase.h>
 #include <memory>
