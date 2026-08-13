@@ -71,6 +71,9 @@ OctomapServer::OctomapServer(const rclcpp::NodeOptions & node_options)
   point_cloud_max_x_ = declare_parameter("point_cloud_max_x", std::numeric_limits<double>::max());
   point_cloud_min_y_ = declare_parameter("point_cloud_min_y", -std::numeric_limits<double>::max());
   point_cloud_max_y_ = declare_parameter("point_cloud_max_y", std::numeric_limits<double>::max());
+  point_cloud_max_radius_ = declare_parameter("point_cloud_max_radius", 0.0);
+  point_cloud_max_sensor_range_ = declare_parameter("point_cloud_max_sensor_range", 0.0);
+  use_sensor_range_bounds_ = false;
   {
     rcl_interfaces::msg::ParameterDescriptor point_cloud_min_z_desc;
     point_cloud_min_z_desc.description = "Minimum height of points to consider for insertion";
@@ -122,6 +125,8 @@ OctomapServer::OctomapServer(const rclcpp::NodeOptions & node_options)
     filter_ground_plane_desc.description = "Filter ground plane";
     filter_ground_plane_ =
       declare_parameter("filter_ground_plane", false, filter_ground_plane_desc);
+    simple_ground_filter_ = declare_parameter("simple_ground_filter", false);
+    degrade_time_threshold_ = declare_parameter("degrade_time_threshold", 0.0);
   }
   {
     // distance of points from plane for RANSAC
@@ -320,6 +325,18 @@ OctomapServer::OctomapServer(const rclcpp::NodeOptions & node_options)
 
   tf_point_cloud_sub_->registerCallback(&OctomapServer::insertCloudCallback, this);
 
+  // transient_local so a (re)started server inherits the current bounds mode
+  // from the latched selector topic
+  use_sensor_range_bounds_sub_ = create_subscription<std_msgs::msg::Bool>(
+    "use_sensor_range_bounds", rclcpp::QoS(1).transient_local(),
+    std::bind(&OctomapServer::onUseSensorRangeBounds, this, std::placeholders::_1));
+  clear_map_after_sub_ = create_subscription<builtin_interfaces::msg::Time>(
+    "~/clear_map_after", rclcpp::QoS(1),
+    std::bind(&OctomapServer::onClearMapAfter, this, std::placeholders::_1));
+  clear_map_before_sub_ = create_subscription<builtin_interfaces::msg::Time>(
+    "~/clear_map_before", rclcpp::QoS(1),
+    std::bind(&OctomapServer::onClearMapBefore, this, std::placeholders::_1));
+
   octomap_binary_srv_ = create_service<OctomapSrv>(
     "octomap_binary", std::bind(&OctomapServer::onOctomapBinarySrv, this, _1, _2));
   octomap_full_srv_ = create_service<OctomapSrv>(
@@ -400,6 +417,7 @@ bool OctomapServer::openFile(const std::string & filename)
 void OctomapServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
 {
   const auto start_time = rclcpp::Clock{}.now();
+  octree_->updateTime(static_cast<uint32_t>(now().seconds()));
 
   //
   // ground filtering in base frame
@@ -464,15 +482,51 @@ void OctomapServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
     // transform clouds to world frame for insertion
     pcl_ros::transformPointCloud(pc_ground, pc_ground, base_to_world_transform_stamped);
     pcl_ros::transformPointCloud(pc_nonground, pc_nonground, base_to_world_transform_stamped);
+  } else if (simple_ground_filter_) {
+    // directly transform to map frame:
+    pcl_ros::transformPointCloud(pc, pc, sensor_to_world_transform_stamped);
+
+    const auto & st = sensor_to_world_transform_stamped.transform.translation;
+    if (use_sensor_range_bounds_ && point_cloud_max_sensor_range_ > 0.0) {
+      // the world alignment is being corrected, so the origin-anchored
+      // bounds cannot be trusted: bound by distance from the sensor instead
+      filterBySensorRange(pc, tf2::Vector3{st.x, st.y, st.z});
+    } else {
+      // limit to the tank bounds pushed by the tank-info relay (world frame)
+      pass_x.setInputCloud(pc.makeShared());
+      pass_x.filter(pc);
+      pass_y.setInputCloud(pc.makeShared());
+      pass_y.filter(pc);
+      filterByRadius(pc);
+    }
+
+    // split into nonground and ground by world-frame height
+    pass_z.setFilterLimits(ground_filter_distance_, point_cloud_max_z_);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_nonground);
+
+    pass_z.setFilterLimits(point_cloud_min_z_, ground_filter_distance_);
+    pass_z.setInputCloud(pc.makeShared());
+    pass_z.filter(pc_ground);
+
+    pc_ground.header = pc.header;
+    pc_nonground.header = pc.header;
   } else {
     // directly transform to map frame:
     pcl_ros::transformPointCloud(pc, pc, sensor_to_world_transform_stamped);
 
+    const auto & st = sensor_to_world_transform_stamped.transform.translation;
+    if (use_sensor_range_bounds_ && point_cloud_max_sensor_range_ > 0.0) {
+      filterBySensorRange(pc, tf2::Vector3{st.x, st.y, st.z});
+    } else {
+      pass_x.setInputCloud(pc.makeShared());
+      pass_x.filter(pc);
+      pass_y.setInputCloud(pc.makeShared());
+      pass_y.filter(pc);
+      filterByRadius(pc);
+    }
+
     // just filter height range:
-    pass_x.setInputCloud(pc.makeShared());
-    pass_x.filter(pc);
-    pass_y.setInputCloud(pc.makeShared());
-    pass_y.filter(pc);
     pass_z.setInputCloud(pc.makeShared());
     pass_z.filter(pc);
 
@@ -485,6 +539,11 @@ void OctomapServer::insertCloudCallback(const PointCloud2::ConstSharedPtr cloud)
   const auto & t = sensor_to_world_transform_stamped.transform.translation;
   tf2::Vector3 sensor_to_world_vec3{t.x, t.y, t.z};
   insertScan(sensor_to_world_vec3, pc_ground, pc_nonground);
+
+  if (degrade_time_threshold_ > 0.0) {
+    octree_->degradeOutdatedNodes(
+      static_cast<uint32_t>(degrade_time_threshold_), static_cast<uint32_t>(now().seconds()));
+  }
 
   double total_elapsed = (rclcpp::Clock{}.now() - start_time).seconds();
   RCLCPP_DEBUG(
@@ -1117,6 +1176,68 @@ void OctomapServer::filterGroundPlane(
   }
 }
 
+void OctomapServer::filterByRadius(PCLPointCloud & pc) const
+{
+  if (point_cloud_max_radius_ <= 0.0) {
+    return;
+  }
+
+  const double max_radius_sq = point_cloud_max_radius_ * point_cloud_max_radius_;
+  PCLPointCloud pc_inside;
+  pc_inside.header = pc.header;
+  pc_inside.reserve(pc.size());
+  for (const auto & point : pc) {
+    const double radius_sq =
+      static_cast<double>(point.x) * point.x + static_cast<double>(point.y) * point.y;
+    if (radius_sq <= max_radius_sq) {
+      pc_inside.push_back(point);
+    }
+  }
+  pc.swap(pc_inside);
+}
+
+void OctomapServer::filterBySensorRange(
+  PCLPointCloud & pc, const tf2::Vector3 & sensor_origin) const
+{
+  if (point_cloud_max_sensor_range_ <= 0.0) {
+    return;
+  }
+
+  const double max_range_sq = point_cloud_max_sensor_range_ * point_cloud_max_sensor_range_;
+  PCLPointCloud pc_inside;
+  pc_inside.header = pc.header;
+  pc_inside.reserve(pc.size());
+  for (const auto & point : pc) {
+    const double dx = point.x - sensor_origin.x();
+    const double dy = point.y - sensor_origin.y();
+    const double dz = point.z - sensor_origin.z();
+    if (dx * dx + dy * dy + dz * dz <= max_range_sq) {
+      pc_inside.push_back(point);
+    }
+  }
+  pc.swap(pc_inside);
+}
+
+void OctomapServer::onUseSensorRangeBounds(std_msgs::msg::Bool::ConstSharedPtr msg)
+{
+  if (msg->data != use_sensor_range_bounds_) {
+    RCLCPP_INFO(
+      get_logger(), "Pointcloud bounds switched to %s",
+      msg->data ? "sensor-range" : "origin-anchored");
+  }
+  use_sensor_range_bounds_ = msg->data;
+}
+
+void OctomapServer::onClearMapAfter(builtin_interfaces::msg::Time::ConstSharedPtr epoch)
+{
+  octree_->removeNodesByTime(static_cast<uint32_t>(rclcpp::Time(*epoch).seconds()), false);
+}
+
+void OctomapServer::onClearMapBefore(builtin_interfaces::msg::Time::ConstSharedPtr epoch)
+{
+  octree_->removeNodesByTime(static_cast<uint32_t>(rclcpp::Time(*epoch).seconds()), true);
+}
+
 void OctomapServer::handlePreNodeTraversal(const rclcpp::Time & rostime)
 {
   if (publish_2d_map_) {
@@ -1358,6 +1479,12 @@ rcl_interfaces::msg::SetParametersResult OctomapServer::onParameter(
   int64_t max_tree_depth{get_parameter("max_depth").as_int()};
   update_param(parameters, "max_depth", max_tree_depth);
   max_tree_depth_ = static_cast<size_t>(max_tree_depth);
+  update_param(parameters, "point_cloud_min_x", point_cloud_min_x_);
+  update_param(parameters, "point_cloud_max_x", point_cloud_max_x_);
+  update_param(parameters, "point_cloud_min_y", point_cloud_min_y_);
+  update_param(parameters, "point_cloud_max_y", point_cloud_max_y_);
+  update_param(parameters, "point_cloud_max_radius", point_cloud_max_radius_);
+  update_param(parameters, "point_cloud_max_sensor_range", point_cloud_max_sensor_range_);
   update_param(parameters, "point_cloud_min_z", point_cloud_min_z_);
   update_param(parameters, "point_cloud_max_z", point_cloud_max_z_);
   update_param(parameters, "occupancy_min_z", occupancy_min_z_);

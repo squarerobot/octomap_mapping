@@ -71,8 +71,16 @@
 // One has this defined, and the other doesn't
 // #define COLOR_OCTOMAP_SERVER
 
+// timestamped octree so map regions can be erased by insertion time
+// (clear_map_after / clear_map_before), e.g. after a large nav fix
+#define STAMPED_OCTOMAP_SERVER
+
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
+#elif defined(STAMPED_OCTOMAP_SERVER)
+#include "octomap_server/square_octree_stamped.hpp"
+#include "builtin_interfaces/msg/time.hpp"
+#include "std_msgs/msg/bool.hpp"
 #endif
 
 #include <algorithm>
@@ -96,6 +104,10 @@ public:
   using PCLPoint = pcl::PointXYZRGB;
   using PCLPointCloud = pcl::PointCloud<pcl::PointXYZRGB>;
   using OcTreeT = octomap::ColorOcTree;
+#elif defined(STAMPED_OCTOMAP_SERVER)
+  using PCLPoint = pcl::PointXYZ;
+  using PCLPointCloud = pcl::PointCloud<pcl::PointXYZ>;
+  using OcTreeT = octomap::SquareOcTreeStamped;
 #else
   using PCLPoint = pcl::PointXYZ;
   using PCLPointCloud = pcl::PointCloud<pcl::PointXYZ>;
@@ -173,6 +185,27 @@ protected:
   void filterGroundPlane(
     const PCLPointCloud & pc, PCLPointCloud & ground,
     PCLPointCloud & nonground) const;
+
+  /// drop points whose world-frame XY radius from the origin (tank center)
+  /// exceeds point_cloud_max_radius_. Disabled when the radius is <= 0.
+  /// The cloud must already be in the world frame.
+  void filterByRadius(PCLPointCloud & pc) const;
+
+  /// drop points farther than point_cloud_max_sensor_range_ from the sensor
+  /// origin. Used instead of the origin-anchored bounds while sensor-range
+  /// bounds are selected (see onUseSensorRangeBounds). The cloud must already
+  /// be in the world frame; distance from the sensor is frame-invariant.
+  void filterBySensorRange(PCLPointCloud & pc, const tf2::Vector3 & sensor_origin) const;
+
+  /// selects between the origin-anchored bounds (box + radius, default) and
+  /// the sensor-range bound, e.g. while the world alignment is being corrected
+  void onUseSensorRangeBounds(std_msgs::msg::Bool::ConstSharedPtr msg);
+
+  /// erase every node inserted after (clear_map_after) or before
+  /// (clear_map_before) the given time, e.g. drift-window data behind a
+  /// large nav fix
+  void onClearMapAfter(builtin_interfaces::msg::Time::ConstSharedPtr epoch);
+  void onClearMapBefore(builtin_interfaces::msg::Time::ConstSharedPtr epoch);
 
   /**
   * @brief Find speckle nodes (single occupied voxels with no neighbors). Only works on lowest resolution!
@@ -253,6 +286,9 @@ protected:
   rclcpp::Service<OctomapSrv>::SharedPtr octomap_full_srv_;
   rclcpp::Service<BBoxSrv>::SharedPtr clear_bbox_srv_;
   rclcpp::Service<ResetSrv>::SharedPtr reset_srv_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr use_sensor_range_bounds_sub_;
+  rclcpp::Subscription<builtin_interfaces::msg::Time>::SharedPtr clear_map_after_sub_;
+  rclcpp::Subscription<builtin_interfaces::msg::Time>::SharedPtr clear_map_before_sub_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf2_listener_;
 
@@ -280,6 +316,9 @@ protected:
   double point_cloud_max_x_;
   double point_cloud_min_y_;
   double point_cloud_max_y_;
+  double point_cloud_max_radius_;
+  double point_cloud_max_sensor_range_;
+  bool use_sensor_range_bounds_;
   double point_cloud_min_z_;
   double point_cloud_max_z_;
   double occupancy_min_z_;
@@ -289,9 +328,11 @@ protected:
   bool filter_speckles_;
 
   bool filter_ground_plane_;
+  bool simple_ground_filter_;
   double ground_filter_distance_;
   double ground_filter_angle_;
   double ground_filter_plane_distance_;
+  double degrade_time_threshold_;
 
   bool compress_map_;
 
