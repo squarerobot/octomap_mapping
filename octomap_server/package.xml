@@ -16,7 +16,9 @@
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
   <depend>geometry_msgs</depend>
-  <depend>liboctomap-dev</depend>
+  <!-- the octomap key resolves to the ROS-released library (1.10+); the Ubuntu
+       liboctomap-dev (1.9.7) aborts in deleteNode under removeNodesByTime -->
+  <depend>octomap</depend>
   <depend>libpcl-all-dev</depend>
   <depend>message_filters</depend>
   <depend>nav_msgs</depend>
