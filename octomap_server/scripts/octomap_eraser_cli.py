@@ -33,7 +33,7 @@
 import sys
 
 import rclpy
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point  # noqa: I100
 from octomap_msgs.srv import BoundingBoxQuery
 from rclpy.node import Node
 
