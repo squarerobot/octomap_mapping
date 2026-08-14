@@ -401,6 +401,10 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
       // bounds cannot be trusted: bound by distance from the sensor instead
       filterBySensorRange(pc, sensorToWorldTf.getOrigin());
     } else {
+      if (m_useSensorRangeBounds){
+        ROS_WARN_THROTTLE(30.0, "use_sensor_range_bounds is set but pointcloud_max_sensor_range "
+                          "is unset (<= 0): falling back to the origin-anchored bounds");
+      }
       // limit to octomap_tank_relay params (world frame)
       pass_x.setInputCloud(pc.makeShared());
       pass_x.filter(pc);
@@ -430,6 +434,10 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     if (m_useSensorRangeBounds && m_pointcloudMaxSensorRange > 0.0){
       filterBySensorRange(pc, sensorToWorldTf.getOrigin());
     } else {
+      if (m_useSensorRangeBounds){
+        ROS_WARN_THROTTLE(30.0, "use_sensor_range_bounds is set but pointcloud_max_sensor_range "
+                          "is unset (<= 0): falling back to the origin-anchored bounds");
+      }
       pass_x.setInputCloud(pc.makeShared());
       pass_x.filter(pc);
       pass_y.setInputCloud(pc.makeShared());
