@@ -381,6 +381,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
     // transform pointcloud from sensor frame to fixed robot frame
     pcl::transformPointCloud(pc, pc, sensorToBase);
+    // NOTE: unlike the paths below, the x/y limits here evaluate in the robot base
+    // frame and the radius / sensor-range bounds are not applied; the vehicles do
+    // not run this path and it intentionally keeps the stock behavior
     pass_x.setInputCloud(pc.makeShared());
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
@@ -405,7 +408,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
         ROS_WARN_THROTTLE(30.0, "use_sensor_range_bounds is set but pointcloud_max_sensor_range "
                           "is unset (<= 0): falling back to the origin-anchored bounds");
       }
-      // limit to octomap_tank_relay params (world frame)
+      // limit to octomap_tankinfo_relay params (world frame)
       pass_x.setInputCloud(pc.makeShared());
       pass_x.filter(pc);
       pass_y.setInputCloud(pc.makeShared());

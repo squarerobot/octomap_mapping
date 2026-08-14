@@ -179,7 +179,9 @@ protected:
   void filterBySensorRange(PCLPointCloud& pc, const tf::Point& sensorOrigin) const;
 
   /// selects between the origin-anchored bounds (box + radius, default) and the
-  /// sensor-range bound, e.g. while the world alignment is being corrected
+  /// sensor-range bound, e.g. while the world alignment is being corrected.
+  /// The world-frame z limits stay active in either mode: depth is measured
+  /// absolutely, so an alignment correction does not shift z.
   void onUseSensorRangeBounds(const std_msgs::Bool::ConstPtr& msg);
 
   /**
