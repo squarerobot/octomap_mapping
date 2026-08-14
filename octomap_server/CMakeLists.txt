@@ -38,6 +38,7 @@ rclcpp_components_register_node(octomap_server_static
 
 ament_auto_add_library(octomap_server SHARED
   src/octomap_server.cpp
+  src/square_octree_stamped.cpp
 )
 
 target_link_libraries(octomap_server
@@ -61,6 +62,7 @@ rclcpp_components_register_node(octomap_server
 ament_auto_add_library(octomap_server_multilayer SHARED
   src/octomap_server.cpp
   src/octomap_server_multilayer.cpp
+  src/square_octree_stamped.cpp
 )
 
 target_link_libraries(octomap_server_multilayer
@@ -75,6 +77,7 @@ rclcpp_components_register_node(octomap_server_multilayer
 
 ament_auto_add_library(tracking_octomap_server SHARED
   src/octomap_server.cpp
+  src/square_octree_stamped.cpp
   src/tracking_octomap_server.cpp
 )
 
@@ -87,22 +90,6 @@ rclcpp_components_register_node(tracking_octomap_server
   PLUGIN "octomap_server::TrackingOctomapServer"
   EXECUTABLE tracking_octomap_server_node
 )
-
-ament_auto_add_library(color_octomap_server SHARED
-  src/octomap_server.cpp
-)
-
-target_link_libraries(color_octomap_server
-  ${OCTOMAP_LIBRARIES}
-  ${PCL_LIBRARIES}
-)
-
-rclcpp_components_register_node(color_octomap_server
-  PLUGIN "octomap_server::ColorOctomapServer"
-  EXECUTABLE color_octomap_server_node
-)
-
-target_compile_definitions(color_octomap_server PUBLIC COLOR_OCTOMAP_SERVER)
 
 ament_auto_add_library(octomap_saver SHARED
   src/octomap_saver.cpp

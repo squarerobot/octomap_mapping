@@ -10,16 +10,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # SR3B targets jazzy; kilted kept as the forward-compat check.
+        # humble fails only on uncrustify version skew and rolling lacks
+        # released octomap_msgs; both can return when they become targets.
         ros_distribution:
-          - humble
           - jazzy
           - kilted
-          - rolling
         include:
-          # Humble Hawksbill (May 2022 - May 2027)
-          - docker_image: ghcr.io/sloretz/ros:humble-ros-base
-            ros_distribution: humble
-            ros_version: 2
           # Jazzy Jalisco (May 2024 - May 2029)
           - docker_image: ghcr.io/sloretz/ros:jazzy-ros-base
             ros_distribution: jazzy
@@ -27,10 +24,6 @@ jobs:
           # Kilted Kaiju (May 2025 - December 2026)
           - docker_image: ghcr.io/sloretz/ros:kilted-ros-base
             ros_distribution: kilted
-            ros_version: 2
-          # Rolling Ridley  (June 2020 - Present)
-          - docker_image: ghcr.io/sloretz/ros:rolling-ros-base
-            ros_distribution: rolling
             ros_version: 2
     runs-on: ubuntu-latest
     container:

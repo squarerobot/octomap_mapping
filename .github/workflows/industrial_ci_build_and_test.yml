@@ -4,12 +4,17 @@ on: [push, pull_request] # on all pushes and PRs
 jobs:
   CI:
     strategy:
+      # SR3B targets jazzy; kilted kept as the forward-compat check.
+      # humble (uncrustify version skew) and rolling (octomap_msgs not
+      # released there) can return when they become targets.
+      fail-fast: false
       matrix:
         env:
-          - {ROS_DISTRO: rolling}
-          - {ROS_DISTRO: humble}
-          - {ROS_DISTRO: jazzy}
-          - {ROS_DISTRO: kilted}
+          # UPSTREAM_WORKSPACE builds octomap_ros from source per
+          # build_depends.repos; it has no released jazzy deb.
+          # kilted runs in the ROS2 CI workflow only: industrial_ci's kilted
+          # environment has no released octomap deb to resolve the rosdep key.
+          - {ROS_DISTRO: jazzy, UPSTREAM_WORKSPACE: build_depends.repos}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
