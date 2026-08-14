@@ -11,9 +11,9 @@ jobs:
       matrix:
         env:
           # UPSTREAM_WORKSPACE builds octomap_ros from source per
-          # build_depends.repos; it has no released deb on these distros
+          # build_depends.repos; it has no released jazzy deb.
           # kilted runs in the ROS2 CI workflow only: industrial_ci's kilted
-          # environment has no released octomap deb to resolve the rosdep key
+          # environment has no released octomap deb to resolve the rosdep key.
           - {ROS_DISTRO: jazzy, UPSTREAM_WORKSPACE: build_depends.repos}
     runs-on: ubuntu-latest
     steps:

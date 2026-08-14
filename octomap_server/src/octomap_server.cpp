@@ -1496,6 +1496,7 @@ rcl_interfaces::msg::SetParametersResult OctomapServer::onParameter(
   update_param(parameters, "ground_filter_distance", ground_filter_distance_);
   update_param(parameters, "ground_filter_angle", ground_filter_angle_);
   update_param(parameters, "ground_filter_plane_distance", ground_filter_plane_distance_);
+  update_param(parameters, "degrade_time_threshold", degrade_time_threshold_);
   update_param(parameters, "sensor_model.max_range", max_range_);
   double sensor_model_min{get_parameter("sensor_model.min").as_double()};
   update_param(parameters, "sensor_model.min", sensor_model_min);

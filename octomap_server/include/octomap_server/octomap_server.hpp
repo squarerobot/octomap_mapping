@@ -66,9 +66,9 @@
 #include "octomap_ros/conversions.hpp"
 
 
-// switch color here - easier maintenance, only maintain OctomapServer.
-// Two targets are defined in the cmake, octomap_server_color and octomap_server.
-// One has this defined, and the other doesn't
+// the color server target was removed: octomap_server.cpp now calls the
+// stamped-tree API (updateTime, removeNodesByTime) unconditionally, which
+// ColorOcTree lacks. The #ifdef below is kept only to stay close to upstream.
 // #define COLOR_OCTOMAP_SERVER
 
 // timestamped octree so map regions can be erased by insertion time

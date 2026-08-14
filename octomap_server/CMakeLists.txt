@@ -61,8 +61,8 @@ rclcpp_components_register_node(octomap_server
 
 ament_auto_add_library(octomap_server_multilayer SHARED
   src/octomap_server.cpp
-  src/square_octree_stamped.cpp
   src/octomap_server_multilayer.cpp
+  src/square_octree_stamped.cpp
 )
 
 target_link_libraries(octomap_server_multilayer
