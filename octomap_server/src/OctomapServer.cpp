@@ -387,14 +387,14 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
     pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
   } else if(m_simpleGroundFilter) {
-    // limit to octomap_tank_relay params
+    // directly transform to map frame:
+    pcl::transformPointCloud(pc, pc, sensorToWorld);
+
+    // limit to octomap_tank_relay params (world frame)
     pass_x.setInputCloud(pc.makeShared());
     pass_x.filter(pc);
     pass_y.setInputCloud(pc.makeShared());
     pass_y.filter(pc);
-
-    // directly transform to map frame:
-    pcl::transformPointCloud(pc, pc, sensorToWorld);
 
     // filter for just nonground in world frame
     pass_z.setFilterLimits(m_groundFilterDistance, m_pointcloudMaxZ);
@@ -1386,7 +1386,7 @@ void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& con
     m_fixedSizeX = config.map_fixed_x_size;
     m_fixedSizeY = config.map_fixed_y_size;
     m_fixedOriginX = config.map_fixed_x_origin;
-    m_fixedOriginY = config.map_fixed_x_origin;
+    m_fixedOriginY = config.map_fixed_y_origin;
 
     // DNR 6-16-23: This is a rather ominous comment which I don't completely understand, but dynamic
     //              reconfigure doesn't work for other parameters on startup if this is returning here
